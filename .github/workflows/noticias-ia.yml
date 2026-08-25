@@ -1,0 +1,87 @@
+name: Noticias IA diarias
+
+# El digest sale todos los días a las 9:00 hora de Madrid, en los runners de
+# GitHub: no depende de que ningún ordenador esté encendido.
+#
+# El cron de GitHub Actions sólo entiende UTC y Madrid cambia de offset con el
+# horario de verano, así que disparamos a las dos horas UTC posibles y es el
+# script quien decide cuál de las dos es realmente la 9:00 local:
+#   07:00 UTC = 09:00 CEST (verano)  -> ejecuta;  10:00 -> se salta
+#   08:00 UTC = 09:00 CET  (invierno) -> ejecuta;  08:00 -> se salta
+on:
+  schedule:
+    - cron: '0 7,8 * * *'
+  workflow_dispatch:
+    inputs:
+      ventana:
+        description: 'Ventana de noticias'
+        type: choice
+        options: [ayer, ultimas24h]
+        default: ultimas24h
+      dry_run:
+        description: 'Sólo listar candidatos, sin llamar a Anthropic ni enviar a Telegram'
+        type: boolean
+        default: false
+
+# Dos ejecuciones a la vez podrían mandar el digest por duplicado.
+concurrency:
+  group: noticias-ia
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DIGEST_TZ: Europe/Madrid
+      DIGEST_HOUR: '9'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Fecha local
+        id: fecha
+        run: echo "hoy=$(TZ=$DIGEST_TZ date +%F)" >> "$GITHUB_OUTPUT"
+
+      # Si un runner va con retraso, las dos ejecuciones del día podrían caer
+      # ambas dentro de la hora del digest. Esta marca hace que la segunda no
+      # vuelva a enviarlo.
+      - name: ¿Ya se envió hoy?
+        id: marca
+        if: github.event_name == 'schedule'
+        uses: actions/cache/restore@v6
+        with:
+          path: .enviado
+          key: noticias-ia-enviado-${{ steps.fecha.outputs.hoy }}
+
+      - name: Generar y enviar el digest
+        if: steps.marca.outputs.cache-hit != 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python scripts/noticias_ia.py \
+            --ventana "${{ inputs.ventana || 'ayer' }}" \
+            --marca .enviado/${{ steps.fecha.outputs.hoy }} \
+            ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }} \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Anotar que ya salió
+        if: github.event_name == 'schedule' && hashFiles('.enviado/**') != ''
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: .enviado
+          key: noticias-ia-enviado-${{ steps.fecha.outputs.hoy }}
