@@ -2,6 +2,42 @@
 
 This is a portfolio project demonstrating my AI skills.
 
+## Agente financiero conversacional (API)
+
+Una API en Python con un agente de chat que **recuerda cada conversación por id**
+y consulta **datos reales de mercado en Yahoo Finance**. El bucle del agente está
+escrito a mano —nada de `AgentExecutor`— y todo corre en Docker.
+
+```
+POST /chat  ──▶  hilo por id ──▶ ventana de contexto ──▶ agent_loop
+                                                            │
+                                       ┌────────────────────┴────────────┐
+                                       │  modelo  ⇄  tool yahoo_finance  │
+                                       └────────────────────┬────────────┘
+                                                            ▼
+GET /chat/{id} ◀── historial persistido ◀── se guarda el turno ◀── respuesta
+```
+
+```bash
+cd agente-financiero
+cp .env.example .env        # y pon tu ANTHROPIC_API_KEY
+docker compose up --build   # http://localhost:8000/docs
+```
+
+Sin clave de Anthropic también se puede ver funcionando: con `LLM_PROVIDER=fake`
+arranca un modelo determinista que sí usa la memoria y sí llama a la tool.
+
+| Qué | Dónde |
+|---|---|
+| El bucle del agente, explícito | `agente-financiero/app/agent/loop.py` |
+| La tool de Yahoo Finance | `agente-financiero/app/agent/tools/yahoo_finance.py` |
+| Memoria por conversación (memoria / SQLite) | `agente-financiero/app/memory/` |
+| Endpoints `POST /chat` y `GET /chat/{id}` | `agente-financiero/app/api/routes.py` |
+| 57 tests, sin red ni credenciales | `agente-financiero/tests/` |
+
+Los detalles —decisiones de diseño, invariantes del bucle, qué falta para
+producción— están en [`agente-financiero/README.md`](agente-financiero/README.md).
+
 ## Noticias IA diarias
 
 Un resumen de las noticias de IA del día anterior, en Telegram, todas las mañanas

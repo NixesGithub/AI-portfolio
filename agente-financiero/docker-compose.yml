@@ -1,0 +1,24 @@
+services:
+  api:
+    build: .
+    image: agente-financiero:latest
+    ports:
+      - "8000:8000"
+    # Toda la configuración va en .env (ver .env.example). Los valores por
+    # defecto de la imagen ya sirven para arrancar: SQLite sobre /data.
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # El volumen es lo que hace que el historial sobreviva a un reinicio.
+      - conversations:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  conversations:

@@ -1,0 +1,38 @@
+name: Agente financiero — tests
+
+on:
+  push:
+    paths:
+      - "agente-financiero/**"
+      - ".github/workflows/agente-financiero-tests.yml"
+  pull_request:
+    paths:
+      - "agente-financiero/**"
+      - ".github/workflows/agente-financiero-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agente-financiero
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: agente-financiero/requirements-dev.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      # Sin red ni credenciales: el modelo es el proveedor `fake` y Yahoo Finance
+      # va sustituido por un doble.
+      - name: Tests
+        run: pytest -q
+
+      - name: Comprobar que la imagen de Docker se construye
+        run: docker build -t agente-financiero:ci .
