@@ -122,3 +122,18 @@ tiene RSS, probá con una búsqueda de Google News acotada a ese dominio:
 ```
 https://news.google.com/rss/search?q=site:ejemplo.com+AI&hl=es&gl=ES&ceid=ES:es
 ```
+
+## Finance Agent API
+
+Un agente conversacional con memoria por hilo que consulta datos de mercado de
+Yahoo Finance. FastAPI + LangChain, con el bucle del agente escrito a mano en
+vez de delegarlo en `AgentExecutor`, y corriendo en Docker.
+
+```
+POST /chat        → mensaje a un hilo (lo crea si no existe)
+GET  /chat/{id}   → historial de ese hilo
+```
+
+Está en [`finance-agent/`](finance-agent/), con el detalle de las decisiones de
+diseño —memoria como interfaz, locks por conversación, recorte de historial por
+tokens, qué pasa cuando una herramienta falla— en su propio README.
