@@ -1,0 +1,19 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Única variable obligatoria. Se toma del entorno o de un .env al lado
+      # de este archivo; nunca se escribe en la imagen.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?falta ANTHROPIC_API_KEY}
+      ENVIRONMENT: local
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+    volumes:
+      # Las conversaciones sobreviven a `docker compose down`.
+      - conversations:/srv/data
+    restart: unless-stopped
+
+volumes:
+  conversations:
